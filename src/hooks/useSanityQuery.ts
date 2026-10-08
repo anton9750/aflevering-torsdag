@@ -1,0 +1,50 @@
+import { useEffect, useState } from 'react'
+
+import { API_URL } from '../lib/sanity'
+import { useLanguage } from '../contexts/LanguageContext'
+
+
+export function useSanityQuery<T>(query: string | null) {
+  const { language } = useLanguage()
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(Boolean(query))
+  const [error, setError] = useState<string | null>(null)
+
+  const getData = async () => {
+    if (!query) {
+      setData(null)
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      // $language er en GROQ-parameter og skal sendes som JSON-streng, fx $language="da"
+      const url = `${API_URL}?query=${encodeURIComponent(query)}&$language=${encodeURIComponent(JSON.stringify(language))}`
+
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`)
+      }
+
+      const json = await response.json()
+
+      // Sanity returnerer data i result
+      setData(json.result ?? null)
+    } catch (err) {
+      setData(null)
+      setError(err instanceof Error ? err.message : 'Request failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    getData()
+  }, [query, language])
+
+  return { data, loading, error, reload: getData }
+}
